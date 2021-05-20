@@ -1,17 +1,14 @@
+import numpy as np
 from sklearn.datasets import load_wine
 from sklearn.model_selection import train_test_split as split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
-
-from fema_classifier import FEMaClassifier as fema_c
-from fema_regressor import FEMaRegressor as fema_r
 from fema_supervised import FEMaClassifier, FEMaRegressor
-import numpy as np
 
 scaler = StandardScaler()
 
 X, y = load_wine(return_X_y=True)
-_X_train, _X_test, y_train, y_test = split(X, y, test_size=0.3, random_state=45780)
+_X_train, _X_test, y_train, y_test = split(X, y, test_size=0.3, random_state=1234)
 
 X_train = scaler.fit_transform(_X_train)
 X_test = scaler.transform(_X_test)
@@ -41,20 +38,3 @@ preds = femar.predict(X_test)
 
 acc = accuracy_score(y_test, np.round(preds).astype(int))
 print(f'Accuracy score on test set for top-{femar.k} nearest neighbors (training samples): {acc: .4f}')
-
-
-# Original FEMa classifier version
-femac = fema_c(z=z)
-femac.fit(X_train, y_train)
-preds = femac.predict(X_test)
-
-acc = accuracy_score(y_test, preds)
-print(f'Accuracy score on test set for k = all training samples: {acc: .4f}')
-
-# Original FEMa regressor version
-femar = fema_r(z=z, use_numba=True)
-femar.fit(X_train, y_train)
-preds = femar.predict(X_test)
-
-acc = accuracy_score(y_test, np.round(preds).astype(int))
-print(f'Accuracy score on test set for k = all training samples: {acc: .4f}')
