@@ -1,15 +1,19 @@
 import numpy as np
 from sklearn.neighbors import KDTree
 
-class KD_Tree:
 
-    def __init__(self, params: dict={}):
+class KDtree:
+
+    def __init__(self, params=None):
         
+        if params is None:
+            params = {'leaf_size': 30, 'distance': 'minkowski'}
+
         self.tree = None
         self.params = params
 
-        if params.get('n_leaf') is None:
-            self.params['n_leaf'] = 30
+        if params.get('leaf_size') is None:
+            self.params['leaf_size'] = 30
 
         if params.get('distance') is None:
             self.params['distance'] = 'minkowski'
@@ -22,22 +26,22 @@ class KD_Tree:
     def tree(self, tree):
         self._tree = tree
 
-    def fit(self, X: np.ndarray, save_file: bool=False):
+    def fit(self, X: np.ndarray):
         
         self.tree = KDTree(
-            X, leaf_size=self.params.get('n_leaf'), 
+            X, leaf_size=self.params.get('leaf_size'),
             metric=self.params.get('distance'))
 
-    def query(self, sample: np.ndarray, k: int, dual_tree: bool=False, sorted: bool=True):
-        
+    def query(self, sample: np.ndarray, k: int, dual_tree: bool = False, sort: bool = True):
+
         distances, indices = self.tree.query(
-            [sample], k=k, dualtree=dual_tree, sort_results=sorted)
+            [sample], k=k, dualtree=dual_tree, sort_results=sort)
         
         return list(indices[0]), list(distances[0])
     
-    def query_2d(self, sample: np.ndarray, k: int, dual_tree: bool=False, sorted: bool=True):
+    def query_2d(self, sample: np.ndarray, k: int, dual_tree: bool = False, sort: bool = True):
         
         distances, indices = self.tree.query(
-            sample, k=k, dualtree=dual_tree, sort_results=sorted)
+            sample, k=k, dualtree=dual_tree, sort_results=sort)
         
         return indices, distances

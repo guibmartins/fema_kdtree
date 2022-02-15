@@ -1,8 +1,9 @@
 import numpy as np
-import math
-from scipy.spatial import distance
+# import math
+# from scipy.spatial import distance
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.utils.validation import check_is_fitted
+# from sklearn.utils.validation import check_is_fitted
+
 
 class FEMa(BaseEstimator, ClassifierMixin):
 

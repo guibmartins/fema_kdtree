@@ -1,19 +1,20 @@
 import numpy as np
 from numba import njit, prange
-from numba.typed import List
-from math import sqrt
-from numpy.lib.type_check import asfarray
+# from numba.typed import List
+# from math import sqrt
+# from numpy.lib.type_check import asfarray
 from sklearn.utils.validation import check_is_fitted
 from sklearn.metrics import accuracy_score
 from fema import FEMa
-from kdtree import KD_Tree
+from kdtree import KDtree
+
 
 class FEMaClassifier(FEMa):
 
-    def __init__(self, z: int=3, kdtree_params: dict={'k': 1}):
+    def __init__(self, z: int = 3, kdtree_params: dict = {'k': 1}):
 
         super(FEMaClassifier, self).__init__(z=z)
-        self._kdtree = KD_Tree(kdtree_params)
+        self._kdtree = KDtree(kdtree_params)
         self.k = kdtree_params.get('k')
     
     @property
@@ -23,7 +24,7 @@ class FEMaClassifier(FEMa):
     @k.setter
     def k(self, k):
 
-        if not isinstance(k, (int, np.int32)):
+        if not isinstance(k, (int, np.int32, np.int64)):
             raise TypeError('`k` should be an integer or null')
 
         if k < 1:
@@ -39,8 +40,8 @@ class FEMaClassifier(FEMa):
         # dist = np.linalg.norm(diff, axis=1)
         # dist = np.array([distance.euclidean(xk, xj) for xj in X_train])
 
-        indices, distances = self._kdtree.query(x, k=self.k, sorted=False)
-        idw = np.array(distances) ** -self._z
+        indices, distances = self._kdtree.query(x, k=self.k, sort=False)
+        idw = np.array(distances, dtype=np.float64) ** -self._z
         
         return idw / np.sum(idw), indices
 
@@ -88,12 +89,15 @@ class FEMaClassifier(FEMa):
 
 class FEMaRegressor(FEMa):
 
-    def __init__(self, z: int=3, use_numba: bool=True, kdtree_params: dict={'k': 1}):
+    def __init__(self, z: int = 3, use_numba: bool = True, kdtree_params: dict = {'k': 1}):
         
         super(FEMaRegressor, self).__init__(z=z)
         self._use_numba = use_numba
-        self._kdtree = KD_Tree(kdtree_params)
+        self._kdtree = KDtree(kdtree_params)
         self._k = kdtree_params.get('k')
+
+        self._X = None
+        self._y = None
 
     @property
     def k(self):
@@ -112,17 +116,14 @@ class FEMaRegressor(FEMa):
 
     def _shepard(self, x: np.ndarray):
 
-        # dist = np.linalg.norm(x - self._X, axis=1)
-        # dist += np.finfo(np.float64).eps
+        indices, distances = self._kdtree.query(x, k=self.k, sort=False)
 
-        indices, distances = self._kdtree.query(x, k=self.k, sorted=False)
-
-        basesP = np.array(distances) ** -self._z
-        basesN = basesP / basesP.sum()
+        basesP = np.array(distances, dtype=np.float64) ** -self._z
+        basesN = basesP / np.sum(basesP)
 
         return np.sum(basesN * self._y[indices])
 
-    def fit(self, X: np.ndarray, y: np.ndarray, copy: bool=True):
+    def fit(self, X: np.ndarray, y: np.ndarray, copy: bool = True):
 
         if copy:
             self._X = X.copy(order='F')
@@ -138,7 +139,7 @@ class FEMaRegressor(FEMa):
 
         if self._use_numba:
             
-            k_idx, k_dist = self._kdtree.query_2d(X_test, k=self.k, sorted=False)
+            k_idx, k_dist = self._kdtree.query_2d(X_test, k=self.k, sort=False)
             
             return self._shepard_numba(
                 X_test, self._y, self._z, k_idx, k_dist)
@@ -147,24 +148,15 @@ class FEMaRegressor(FEMa):
 
     @staticmethod
     @njit(fastmath=True, nogil=True, cache=True, parallel=True)
-    def _shepard_numba(X_test: np.ndarray, y_train: np.ndarray, 
-        z: int, k_indices, k_distances):
+    def _shepard_numba(X_test: np.ndarray, y_train: np.ndarray,
+                       z: int, k_indices, k_distances):
         
         y_pred = np.empty(X_test.shape[0])
 
         for j in prange(X_test.shape[0]):
             
-            # distances = np.empty(X_train.shape[0])
-            
-            # for row_train in prange(X_train.shape[0]):
-            
-            #     diff = X_test[row_test] - X_train[row_train]
-            #     distances[row_train] = sqrt(diff @ diff)
-            
-            # distances += np.finfo(np.float64).eps
-
             basesP = k_distances[j] ** -z
-            basesN = basesP / basesP.sum()
+            basesN = basesP / np.sum(basesP)
             
             idx = k_indices[j]
             y_pred[j] = np.sum(basesN * y_train[idx])
